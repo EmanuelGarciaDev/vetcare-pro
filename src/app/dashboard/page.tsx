@@ -119,8 +119,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Dashboard Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Appointments Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">            {/* Appointments Card */}
             <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-emerald-100 p-6 hover:shadow-xl transition-all duration-300 hover:scale-105">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -132,7 +131,10 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="mt-4">
-                <button className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg">
+                <button 
+                  onClick={() => router.push('/appointments')}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                >
                   View Appointments
                 </button>
               </div>
@@ -173,23 +175,24 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Quick Actions */}
+          </div>          {/* Quick Actions */}
           <div className="mt-8 bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-emerald-100 p-8">
             <h2 className="text-2xl font-bold text-slate-900 mb-6 text-center">Quick Actions</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <button className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-3 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-                New Appointment
+              <button 
+                onClick={() => router.push('/booking')}
+                className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-3 rounded-xl font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+              >
+                Book Appointment
               </button>
               <button className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white px-6 py-3 rounded-xl font-medium hover:from-teal-600 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-                Add Patient
+                Add Pet
               </button>
               <button className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:from-cyan-600 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-                Send Reminder
+                View Records
               </button>
               <button className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105">
-                Generate Report
+                Emergency Contact
               </button>
             </div>
           </div>

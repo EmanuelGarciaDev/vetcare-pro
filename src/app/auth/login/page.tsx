@@ -1,37 +1,54 @@
 'use client';
 
-import { signIn, getSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Stethoscope, Heart, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check if already logged in
-    getSession().then((session) => {
-      if (session) {
-        router.push('/dashboard');
-      }
-    });
-  }, [router]);
-
+    // Redirect if already authenticated
+    if (status === 'authenticated' && session) {
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+      console.log('User authenticated, redirecting to:', callbackUrl);
+      router.push(callbackUrl);
+    }
+  }, [session, status, router, searchParams]);
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      await signIn('google', {
-        callbackUrl: '/dashboard',
+      const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+      console.log('Initiating Google sign-in with callback URL:', callbackUrl);
+      
+      const result = await signIn('google', {
+        callbackUrl,
         redirect: true
       });
+      
+      console.log('Sign-in result:', result);
     } catch (error) {
       console.error('Sign in error:', error);
-    } finally {
       setLoading(false);
     }
   };
+
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50">
       {/* Header */}
