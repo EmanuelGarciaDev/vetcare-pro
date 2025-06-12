@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
   Calendar, 
   Clock, 
@@ -287,11 +288,12 @@ export default function AppointmentsPage() {
                   <div className="flex-1">
                     <div className="flex items-center space-x-4 mb-4">
                       {/* Veterinarian Info */}
-                      <div className="flex-shrink-0">
-                        {appointment.veterinarianId.userId.image ? (
-                          <img
+                      <div className="flex-shrink-0">                        {appointment.veterinarianId.userId.image ? (
+                          <Image
                             src={appointment.veterinarianId.userId.image}
                             alt={appointment.veterinarianId.userId.name}
+                            width={48}
+                            height={48}
                             className="w-12 h-12 rounded-full"
                           />
                         ) : (

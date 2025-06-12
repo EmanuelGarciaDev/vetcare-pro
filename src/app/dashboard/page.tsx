@@ -2,8 +2,8 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Stethoscope, Heart, LogOut, Shield, Calendar, Users, Activity } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Stethoscope, Heart, LogOut, Shield, Calendar, Users, Activity, Clock } from 'lucide-react';
 
 // Extend session type to include role
 interface ExtendedUser {
@@ -22,12 +22,39 @@ interface ExtendedSession {
 export default function DashboardPage() {
   const { data: session, status } = useSession() as { data: ExtendedSession | null; status: string };
   const router = useRouter();
+  const [stats, setStats] = useState({ appointmentCount: 0, isLoading: true });
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/login');
     }
   }, [status, router]);
+
+  // Fetch basic stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!session?.user?.id) return;
+      
+      try {
+        const response = await fetch('/api/appointments');
+        const data = await response.json();
+        
+        if (data.success) {
+          setStats({
+            appointmentCount: data.data.length,
+            isLoading: false
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        setStats(prev => ({ ...prev, isLoading: false }));
+      }
+    };
+
+    if (session?.user?.id) {
+      fetchStats();
+    }
+  }, [session?.user?.id]);
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
@@ -125,17 +152,32 @@ export default function DashboardPage() {
                 <div className="flex-shrink-0">
                   <Calendar className="h-8 w-8 text-emerald-600" />
                 </div>
-                <div className="ml-4">
+                <div className="ml-4 flex-1">
                   <h3 className="text-lg font-semibold text-slate-900">Appointments</h3>
-                  <p className="text-sm text-slate-600">Manage your schedule</p>
+                  <p className="text-sm text-slate-600">
+                    {stats.isLoading ? (
+                      <span className="flex items-center">
+                        <Clock className="w-3 h-3 mr-1 animate-spin" />
+                        Loading...
+                      </span>
+                    ) : (
+                      `${stats.appointmentCount} ${stats.appointmentCount === 1 ? 'appointment' : 'appointments'}`
+                    )}
+                  </p>
                 </div>
               </div>
-              <div className="mt-4">
+              <div className="mt-4 space-y-2">
                 <button 
-                  onClick={() => router.push('/appointments')}
+                  onClick={() => router.push('/booking')}
                   className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
                 >
-                  View Appointments
+                  Book New Appointment
+                </button>
+                <button 
+                  onClick={() => router.push('/appointments')}
+                  className="w-full border border-emerald-300 text-emerald-700 px-4 py-2 rounded-lg font-medium hover:bg-emerald-50 transition-all duration-200"
+                >
+                  View All Appointments
                 </button>
               </div>
             </div>

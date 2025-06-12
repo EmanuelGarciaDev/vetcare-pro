@@ -21,7 +21,7 @@ interface ExtendedSession {
 // GET /api/appointments/[id] - Get specific appointment
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions) as ExtendedSession | null;
@@ -29,6 +29,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const params = await context.params;
     await connectDB();
 
     const appointment = await AppointmentModel.findById(params.id)
@@ -63,7 +64,7 @@ export async function GET(
 // PUT /api/appointments/[id] - Update appointment
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions) as ExtendedSession | null;
@@ -72,6 +73,7 @@ export async function PUT(
     }
 
     const body = await request.json();
+    const params = await context.params;
     await connectDB();
 
     const appointment = await AppointmentModel.findById(params.id);
@@ -114,7 +116,7 @@ export async function PUT(
 // DELETE /api/appointments/[id] - Cancel appointment
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions) as ExtendedSession | null;
@@ -122,6 +124,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const params = await context.params;
     await connectDB();
 
     const appointment = await AppointmentModel.findById(params.id);

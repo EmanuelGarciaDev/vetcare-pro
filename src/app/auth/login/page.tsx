@@ -2,11 +2,11 @@
 
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { Stethoscope, Heart, ArrowLeft } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -125,9 +125,26 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </div>        </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+        <div className="text-center">
+          <div className="relative">
+            <Stethoscope className="h-12 w-12 text-emerald-600 mx-auto animate-pulse" />
+            <Heart className="h-4 w-4 text-teal-500 absolute -top-1 -right-1 animate-bounce" />
+          </div>
+          <p className="mt-4 text-slate-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
