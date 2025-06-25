@@ -152,7 +152,26 @@ export default function DashboardPage() {
         const appointmentsResponse = await fetch('/api/appointments');
         const appointmentsData = await appointmentsResponse.json();
         if (appointmentsData.success) {
-          setAppointments(appointmentsData.data);
+          console.log('📅 Raw appointments data:', appointmentsData.data[0]); // Debug log
+          // Clean the appointments data to ensure no direct array rendering
+          const cleanedAppointments = appointmentsData.data.map((apt: Appointment) => ({
+            ...apt,
+            // Ensure nested arrays don't cause React key issues
+            vetId: apt.vetId ? {
+              ...apt.vetId,
+              specializations: Array.isArray(apt.vetId.specializations) 
+                ? apt.vetId.specializations 
+                : []
+            } : null,
+            petId: apt.petId ? {
+              ...apt.petId,
+              allergies: Array.isArray(apt.petId.allergies) 
+                ? apt.petId.allergies 
+                : []
+            } : null
+          }));
+          console.log('🧹 Cleaned appointments data:', cleanedAppointments[0]); // Debug log
+          setAppointments(cleanedAppointments);
         }
 
         // Fetch veterinarians
@@ -578,13 +597,14 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {displayedAppointments.map((appointment) => (
+                      {displayedAppointments && displayedAppointments.length > 0 ? 
+                        displayedAppointments.map((appointment) => (
                         <div key={appointment._id} className="bg-white rounded-xl shadow-md border border-emerald-100 p-6">
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-2">
                                 <h3 className="text-lg font-semibold text-slate-900">
-                                  {appointment.type} - {appointment.petId?.name}
+                                  {appointment.type} - {appointment.petId?.name || 'No pet selected'}
                                 </h3>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   appointment.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' :
@@ -607,7 +627,7 @@ export default function DashboardPage() {
                                     {appointment.startTime} - {appointment.endTime}
                                   </p>
                                   <p className="text-slate-600">
-                                    Dr. {appointment.vetId?.userId?.name}
+                                    Dr. {appointment.vetId?.userId?.name || 'Unknown Vet'}
                                   </p>
                                 </div>
                                 
@@ -639,7 +659,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      )) : null}
                     </div>
                   )}
                 </div>
