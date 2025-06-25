@@ -32,7 +32,7 @@ const AppointmentSchema = new Schema<Appointment>({
   petId: {
     type: Schema.Types.ObjectId,
     ref: 'Pet',
-    required: true
+    required: false  // Changed from true to false
   },
   vetId: {
     type: Schema.Types.ObjectId,

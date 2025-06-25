@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const veterinarianId = searchParams.get('veterinarian');
     const date = searchParams.get('date');    // Build query filter
-    const filter: Record<string, string | Date | object> = { userId: session.user.id };
+    const filter: Record<string, string | Date | object> = { customerId: session.user.id };
     if (status) filter.status = status;
     if (veterinarianId) filter.vetId = veterinarianId;
     if (date) {
@@ -88,6 +88,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Calculate end time (assume 1 hour appointment)
+    const [hours, minutes] = appointmentTime.split(':').map(Number);
+    const endHours = hours + 1;
+    const endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+
     await connectDB();
 
     // Check if veterinarian exists and is available
@@ -118,10 +123,13 @@ export async function POST(request: NextRequest) {
 
     // Create appointment
     const appointment = new AppointmentModel({
-      userId: session.user.id,
+      customerId: session.user.id,  // Changed from userId to customerId
       vetId: veterinarianId,
       petId: petId || null,
       appointmentDate: appointmentDateTime,
+      startTime: appointmentTime,   // Added startTime
+      endTime: endTime,            // Added endTime
+      type: 'Consultation',        // Added required type field
       reason,
       notes: notes || '',
       status: 'Scheduled',
