@@ -3,6 +3,8 @@
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { 
   Stethoscope, 
   Heart, 
@@ -126,6 +128,8 @@ export default function DashboardPage() {
     reason: '',
     notes: ''
   });
+
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -317,6 +321,27 @@ export default function DashboardPage() {
     return `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
+  // Check if a time slot is occupied for the selected vet and date
+  const isTimeSlotOccupied = (time: string) => {
+    if (!bookingForm.vetId || !bookingForm.appointmentDate) return false;
+    
+    return appointments.some(apt => 
+      apt.vetId?._id === bookingForm.vetId &&
+      apt.appointmentDate.split('T')[0] === bookingForm.appointmentDate &&
+      apt.startTime === time &&
+      ['Scheduled', 'Confirmed'].includes(apt.status)
+    );
+  };
+
+  // Get available time slots
+  const getAvailableTimeSlots = () => {
+    const allSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
+    return allSlots.map(time => ({
+      time,
+      occupied: isTimeSlotOccupied(time)
+    }));
+  };
+
   const resetBookingForm = () => {
     setBookingForm({
       petId: '',
@@ -327,6 +352,7 @@ export default function DashboardPage() {
       reason: '',
       notes: ''
     });
+    setSelectedDate(null);
   };
 
   // Filter appointments
@@ -863,7 +889,7 @@ export default function DashboardPage() {
                   >
                     <option value="">Choose a pet</option>
                     {pets.map((pet) => (
-                      <option key={pet._id} value={pet._id}>
+                      <option key={`pet-${pet._id}`} value={pet._id}>
                         {pet.name} ({pet.species})
                       </option>
                     ))}
@@ -880,8 +906,8 @@ export default function DashboardPage() {
                   >
                     <option value="">Choose a veterinarian</option>
                     {veterinarians.filter(vet => vet.isAvailable).map((vet) => (
-                      <option key={vet._id} value={vet._id}>
-                        Dr. {vet.userId.name} - ${vet.consultationFee} ({vet.specializations.join(', ')})
+                      <option key={`vet-${vet._id}`} value={vet._id}>
+                        Dr. {vet.userId.name} - ${vet.consultationFee} ({Array.isArray(vet.specializations) ? vet.specializations.join(', ') : 'General'})
                       </option>
                     ))}
                   </select>
@@ -890,14 +916,20 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={bookingForm.appointmentDate}
-                      onChange={(e) => setBookingForm({...bookingForm, appointmentDate: e.target.value})}
-                      min={new Date().toISOString().split('T')[0]}
+                    <DatePicker
+                      selected={selectedDate}
+                      onChange={(date: Date | null) => {
+                        setSelectedDate(date);
+                        setBookingForm({
+                          ...bookingForm, 
+                          appointmentDate: date ? date.toISOString().split('T')[0] : ''
+                        });
+                      }}
+                      minDate={new Date()}
+                      dateFormat="yyyy-MM-dd"
+                      placeholderText="Select appointment date"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                      style={{ colorScheme: 'light' }}
+                      required
                     />
                   </div>
                   
@@ -910,8 +942,15 @@ export default function DashboardPage() {
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="">Select time</option>
-                      {['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'].map((time) => (
-                        <option key={time} value={time}>{time}</option>
+                      {getAvailableTimeSlots().map(({ time, occupied }) => (
+                        <option 
+                          key={`time-${time}`} 
+                          value={time}
+                          disabled={occupied}
+                          style={{ color: occupied ? '#ccc' : 'inherit' }}
+                        >
+                          {time} {occupied ? '(Occupied)' : ''}
+                        </option>
                       ))}
                     </select>
                   </div>

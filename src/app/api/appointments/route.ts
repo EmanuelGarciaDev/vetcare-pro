@@ -72,31 +72,36 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      veterinarianId,
+      vetId,
       petId,
       appointmentDate,
-      appointmentTime,
+      startTime,
+      endTime,
+      type,
       reason,
       notes
     } = body;
 
     // Validate required fields
-    if (!veterinarianId || !appointmentDate || !appointmentTime || !reason) {
+    if (!vetId || !appointmentDate || !startTime || !reason || !type) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Calculate end time (assume 1 hour appointment)
-    const [hours, minutes] = appointmentTime.split(':').map(Number);
-    const endHours = hours + 1;
-    const endTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    // Use provided endTime or calculate it (assume 1 hour appointment)
+    let finalEndTime = endTime;
+    if (!finalEndTime) {
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const endHours = hours + 1;
+      finalEndTime = `${endHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
 
     await connectDB();
 
     // Check if veterinarian exists and is available
-    const veterinarian = await VeterinarianModel.findById(veterinarianId);
+    const veterinarian = await VeterinarianModel.findById(vetId);
     if (!veterinarian || !veterinarian.isAvailable) {
       return NextResponse.json(
         { success: false, error: 'Veterinarian not available' },
@@ -105,11 +110,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Create appointment date/time object
-    const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
+    const appointmentDateTime = new Date(`${appointmentDate}T${startTime}`);
     
     // Check if slot is already booked
     const existingAppointment = await AppointmentModel.findOne({
-      vetId: veterinarianId,
+      vetId: vetId,
       appointmentDate: appointmentDateTime,
       status: { $in: ['Scheduled', 'Confirmed'] }
     });
@@ -124,16 +129,17 @@ export async function POST(request: NextRequest) {
     // Create appointment
     const appointment = new AppointmentModel({
       customerId: session.user.id,  // Changed from userId to customerId
-      vetId: veterinarianId,
+      vetId: vetId,
       petId: petId || null,
       appointmentDate: appointmentDateTime,
-      startTime: appointmentTime,   // Added startTime
-      endTime: endTime,            // Added endTime
-      type: 'Consultation',        // Added required type field
+      startTime: startTime,   // Added startTime
+      endTime: finalEndTime,            // Added endTime
+      type: type,        // Added required type field
       reason,
       notes: notes || '',
       status: 'Scheduled',
-      consultationFee: veterinarian.consultationFee
+      totalAmount: veterinarian.consultationFee,
+      paymentStatus: 'Pending'
     });
 
     await appointment.save();
