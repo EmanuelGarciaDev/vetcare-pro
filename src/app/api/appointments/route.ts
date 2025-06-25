@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date');    // Build query filter
     const filter: Record<string, string | Date | object> = { userId: session.user.id };
     if (status) filter.status = status;
-    if (veterinarianId) filter.veterinarianId = veterinarianId;
+    if (veterinarianId) filter.vetId = veterinarianId;
     if (date) {
       const startDate = new Date(date);
       const endDate = new Date(startDate);
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     const appointments = await AppointmentModel.find(filter)
-      .populate('veterinarianId', 'userId specializations consultationFee')
+      .populate('vetId', 'userId specializations consultationFee')
       .populate('petId', 'name species breed')
       .sort({ appointmentDate: 1 });
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     
     // Check if slot is already booked
     const existingAppointment = await AppointmentModel.findOne({
-      veterinarianId,
+      vetId: veterinarianId,
       appointmentDate: appointmentDateTime,
       status: { $in: ['Scheduled', 'Confirmed'] }
     });
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     // Create appointment
     const appointment = new AppointmentModel({
       userId: session.user.id,
-      veterinarianId,
+      vetId: veterinarianId,
       petId: petId || null,
       appointmentDate: appointmentDateTime,
       reason,
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     await appointment.save();
 
     // Populate the response
-    await appointment.populate('veterinarianId', 'userId specializations consultationFee');
+    await appointment.populate('vetId', 'userId specializations consultationFee');
     if (petId) {
       await appointment.populate('petId', 'name species breed');
     }
