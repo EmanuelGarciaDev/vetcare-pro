@@ -914,9 +914,11 @@ export default function DashboardPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="">Choose a veterinarian</option>
-                    {veterinarians.filter(vet => vet.isAvailable).map((vet) => (
-                      <option key={`vet-${vet._id}`} value={vet._id}>
-                        Dr. {vet.userId.name} - ${vet.consultationFee} ({Array.isArray(vet.specializations) ? vet.specializations.join(', ') : 'General'})
+                    {veterinarians
+                      .filter(vet => vet.isAvailable && vet._id) // Ensure vet has valid _id
+                      .map((vet, index) => (
+                      <option key={`vet-${vet._id || `fallback-${index}`}`} value={vet._id}>
+                        Dr. {vet.userId?.name || 'Unknown'} - ${vet.consultationFee || 0} ({Array.isArray(vet.specializations) ? vet.specializations.join(', ') : 'General'})
                       </option>
                     ))}
                   </select>

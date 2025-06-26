@@ -114,8 +114,19 @@ export async function POST(request: NextRequest) {
       notes
     } = body;
 
+    console.log('Creating appointment with data:', {
+      vetId,
+      petId,
+      appointmentDate,
+      startTime,
+      type,
+      reason,
+      customerId: session.user.id
+    });
+
     // Validate required fields
     if (!vetId || !appointmentDate || !startTime || !reason || !type) {
+      console.log('Missing required fields:', { vetId, appointmentDate, startTime, reason, type });
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
@@ -133,8 +144,20 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     // Check if veterinarian exists and is available
+    console.log('Looking for veterinarian with ID:', vetId);
     const veterinarian = await VeterinarianModel.findById(vetId);
-    if (!veterinarian || !veterinarian.isAvailable) {
+    console.log('Found veterinarian:', veterinarian ? 'Yes' : 'No');
+    
+    if (!veterinarian) {
+      console.log('Veterinarian not found for ID:', vetId);
+      return NextResponse.json(
+        { success: false, error: 'Veterinarian not found' },
+        { status: 400 }
+      );
+    }
+    
+    if (!veterinarian.isAvailable) {
+      console.log('Veterinarian not available:', veterinarian.isAvailable);
       return NextResponse.json(
         { success: false, error: 'Veterinarian not available' },
         { status: 400 }
@@ -159,14 +182,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create appointment
+    console.log('Creating appointment object...');
     const appointment = new AppointmentModel({
-      customerId: session.user.id,  // Changed from userId to customerId
-      vetId: vetId,
-      petId: petId || null,
+      customerId: session.user.id,
+      vetId: new ObjectId(vetId),  // Ensure proper ObjectId conversion
+      petId: petId ? new ObjectId(petId) : null,
       appointmentDate: appointmentDateTime,
-      startTime: startTime,   // Added startTime
-      endTime: finalEndTime,            // Added endTime
-      type: type,        // Added required type field
+      startTime: startTime,
+      endTime: finalEndTime,
+      type: type,
       reason,
       notes: notes || '',
       status: 'Scheduled',
@@ -174,7 +198,9 @@ export async function POST(request: NextRequest) {
       paymentStatus: 'Pending'
     });
 
+    console.log('Saving appointment...');
     await appointment.save();
+    console.log('Appointment saved successfully');
 
     // Populate the response
     await appointment.populate('vetId', 'userId specializations consultationFee');
