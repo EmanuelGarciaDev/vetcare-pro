@@ -41,3 +41,31 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Auto-generated documentation files (temporary/reference only)
+*_GUIDE.md
+*_SETUP*.md
+*_SUMMARY.md
+*_REPORT.md
+*_COMPLETE.md
+*_SUCCESS.md
+*_INSTRUCTIONS.md
+MANUAL_*.md
+PROJECT_STATUS*.md
+TRELLO_*.md
+CLINIC_*.md
+DASHBOARD_*.md
+DEPLOY*.md
+FINAL_*.md
+MISSION_*.md
+READY_*.md
+CRITICAL_*.md
+INTEGRATION_*.md
+APPOINTMENT_*.md
+PETS_*.md
+VERCEL_*.md
+PRODUCTION_*.md
+
+# Keep only essential project documentation
+!README.md
+!README-clean.md
