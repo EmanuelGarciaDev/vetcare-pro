@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/mongodb';
 import { AppointmentModel } from '@/lib/models/Appointment';
-import { VeterinarianModel } from '@/lib/models/Veterinarian';
 import { PetModel } from '@/lib/models/Pet';
 import { ObjectId } from 'mongodb';
 
@@ -33,24 +32,28 @@ export async function GET(request: NextRequest) {
 
     // First, get all pets owned by the current user
     const userPets = await PetModel.find({ ownerId: new ObjectId(session.user.id) });
-    const userPetIds = userPets.map(pet => pet._id.toString());
+    const userPetIds = userPets.map(pet => pet._id); // Keep as ObjectId, don't convert to string
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const veterinarianId = searchParams.get('veterinarian');
+    const clinicId = searchParams.get('clinic');
     const date = searchParams.get('date');
     
     // Build query filter - only include appointments for pets owned by the user
     const filter: Record<string, string | Date | object | null> = { 
-      customerId: session.user.id,
+      customerId: new ObjectId(session.user.id), // Convert to ObjectId!
       $or: [
         { petId: { $in: userPetIds } },  // Appointments for user's pets
         { petId: null }  // Appointments without specific pets (general consultations)
       ]
     };
+
+    console.log('🔍 Appointments filter:', JSON.stringify(filter, null, 2));
+    console.log('🔍 User pet IDs:', userPetIds);
+    console.log('🔍 User ID:', session.user.id);
     
     if (status) filter.status = status;
-    if (veterinarianId) filter.vetId = veterinarianId;
+    if (clinicId) filter.clinicId = clinicId;
     if (date) {
       const startDate = new Date(date);
       const endDate = new Date(startDate);
@@ -58,22 +61,50 @@ export async function GET(request: NextRequest) {
       filter.appointmentDate = { $gte: startDate, $lt: endDate };
     }
 
-    const appointments = await AppointmentModel.find(filter)
-      .populate('vetId', 'userId specializations consultationFee')
-      .populate('petId', 'name species breed')
-      .sort({ appointmentDate: 1 });
+    const appointments = await AppointmentModel.aggregate([
+      { $match: filter },
+      {
+        $lookup: {
+          from: 'vetclinics',
+          localField: 'clinicId',
+          foreignField: '_id',
+          as: 'clinicData'
+        }
+      },
+      {
+        $lookup: {
+          from: 'pets',
+          localField: 'petId',
+          foreignField: '_id',
+          as: 'petData'
+        }
+      },
+      {
+        $addFields: {
+          clinicId: { $arrayElemAt: ['$clinicData', 0] },
+          petId: { $arrayElemAt: ['$petData', 0] }
+        }
+      },
+      {
+        $project: {
+          clinicData: 0,
+          petData: 0
+        }
+      },
+      { $sort: { appointmentDate: 1 } }
+    ]);
 
     // Serialize _id fields as strings for consistency
     const serializedAppointments = appointments.map(appointment => ({
-      ...appointment.toObject(),
+      ...appointment,
       _id: appointment._id.toString(),
-      customerId: appointment.customerId.toString(),
-      vetId: appointment.vetId ? {
-        ...appointment.vetId.toObject(),
-        _id: appointment.vetId._id.toString()
+      customerId: appointment.customerId.toString(), // Convert ObjectId to string
+      clinicId: appointment.clinicId ? {
+        ...appointment.clinicId,
+        _id: appointment.clinicId._id.toString()
       } : null,
       petId: appointment.petId ? {
-        ...appointment.petId.toObject(),
+        ...appointment.petId,
         _id: appointment.petId._id.toString()
       } : null
     }));
@@ -104,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      vetId,
+      clinicId,
       petId,
       appointmentDate,
       startTime,
@@ -115,7 +146,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     console.log('Creating appointment with data:', {
-      vetId,
+      clinicId,
       petId,
       appointmentDate,
       startTime,
@@ -125,10 +156,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate required fields
-    if (!vetId || !appointmentDate || !startTime || !reason || !type) {
-      console.log('Missing required fields:', { vetId, appointmentDate, startTime, reason, type });
+    if (!clinicId || !appointmentDate || !startTime || !reason || !type) {
+      console.log('Missing required fields:', { clinicId, appointmentDate, startTime, reason, type });
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: 'Missing required fields: clinic, date, time, reason, and type are required' },
         { status: 400 }
       );
     }
@@ -143,23 +174,28 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // Check if veterinarian exists and is available
-    console.log('Looking for veterinarian with ID:', vetId);
-    const veterinarian = await VeterinarianModel.findById(vetId);
-    console.log('Found veterinarian:', veterinarian ? 'Yes' : 'No');
+    // Check if clinic exists and is active - query vetclinics collection directly
+    console.log('Looking for clinic with ID:', clinicId);
+    const client = new (await import('mongodb')).MongoClient(process.env.MONGODB_URI!);
+    await client.connect();
+    const db = client.db('vetcare-pro');
+    const clinic = await db.collection('vetclinics').findOne({ _id: new ObjectId(clinicId) });
+    await client.close();
     
-    if (!veterinarian) {
-      console.log('Veterinarian not found for ID:', vetId);
+    console.log('Found clinic:', clinic ? clinic.name : 'No');
+    
+    if (!clinic) {
+      console.log('Clinic not found for ID:', clinicId);
       return NextResponse.json(
-        { success: false, error: 'Veterinarian not found' },
+        { success: false, error: 'Clinic not found' },
         { status: 400 }
       );
     }
     
-    if (!veterinarian.isAvailable) {
-      console.log('Veterinarian not available:', veterinarian.isAvailable);
+    if (!clinic.isActive) {
+      console.log('Clinic not active:', clinic.isActive);
       return NextResponse.json(
-        { success: false, error: 'Veterinarian not available' },
+        { success: false, error: 'Clinic not available' },
         { status: 400 }
       );
     }
@@ -167,25 +203,29 @@ export async function POST(request: NextRequest) {
     // Create appointment date/time object
     const appointmentDateTime = new Date(`${appointmentDate}T${startTime}`);
     
-    // Check if slot is already booked
+    // Check if slot is already booked at this clinic
     const existingAppointment = await AppointmentModel.findOne({
-      vetId: vetId,
+      clinicId: clinicId,
       appointmentDate: appointmentDateTime,
+      startTime: startTime,
       status: { $in: ['Scheduled', 'Confirmed'] }
     });
 
     if (existingAppointment) {
       return NextResponse.json(
-        { success: false, error: 'Time slot already booked' },
+        { success: false, error: 'Time slot already booked at this clinic' },
         { status: 400 }
       );
     }
 
+    // Get pricing based on appointment type
+    const appointmentPrice = clinic.pricing[type.toLowerCase() as keyof typeof clinic.pricing] || clinic.pricing.consultation;
+
     // Create appointment
     console.log('Creating appointment object...');
     const appointment = new AppointmentModel({
-      customerId: session.user.id,
-      vetId: new ObjectId(vetId),  // Ensure proper ObjectId conversion
+      customerId: new ObjectId(session.user.id), // Save as ObjectId for consistency
+      clinicId: new ObjectId(clinicId),  // Use clinic instead of vet
       petId: petId ? new ObjectId(petId) : null,
       appointmentDate: appointmentDateTime,
       startTime: startTime,
@@ -194,7 +234,7 @@ export async function POST(request: NextRequest) {
       reason,
       notes: notes || '',
       status: 'Scheduled',
-      totalAmount: veterinarian.consultationFee,
+      totalAmount: appointmentPrice,
       paymentStatus: 'Pending'
     });
 
@@ -202,15 +242,36 @@ export async function POST(request: NextRequest) {
     await appointment.save();
     console.log('Appointment saved successfully');
 
-    // Populate the response
-    await appointment.populate('vetId', 'userId specializations consultationFee');
+    // Manually populate clinic and pet data using correct collections
+    const client2 = new (await import('mongodb')).MongoClient(process.env.MONGODB_URI!);
+    await client2.connect();
+    const db2 = client2.db('vetcare-pro');
+    
+    const populatedClinic = await db2.collection('vetclinics').findOne({ _id: new ObjectId(clinicId) });
+    let populatedPet = null;
     if (petId) {
-      await appointment.populate('petId', 'name species breed');
+      populatedPet = await db2.collection('pets').findOne({ _id: new ObjectId(petId) });
     }
+    await client2.close();
+
+    // Create response with populated data
+    const responseData = {
+      ...appointment.toObject(),
+      _id: appointment._id.toString(),
+      customerId: appointment.customerId.toString(), // Convert ObjectId to string
+      clinicId: populatedClinic ? {
+        ...populatedClinic,
+        _id: populatedClinic._id.toString()
+      } : null,
+      petId: populatedPet ? {
+        ...populatedPet,
+        _id: populatedPet._id.toString()
+      } : null
+    };
 
     return NextResponse.json({
       success: true,
-      data: appointment,
+      data: responseData,
       message: 'Appointment scheduled successfully'
     });
 

@@ -34,10 +34,16 @@ const AppointmentSchema = new Schema<Appointment>({
     ref: 'Pet',
     required: false  // Changed from true to false
   },
+  clinicId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Clinic',
+    required: true
+  },
+  // Keep vetId as optional for backwards compatibility and future features
   vetId: {
     type: Schema.Types.ObjectId,
     ref: 'Veterinarian',
-    required: true
+    required: false  // Changed from true to false
   },
   customerId: {
     type: Schema.Types.ObjectId,

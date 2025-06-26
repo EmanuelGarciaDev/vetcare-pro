@@ -50,6 +50,37 @@ interface Pet {
   ownerId: string;
 }
 
+interface Clinic {
+  _id: string;
+  name: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  phone: string;
+  email: string;
+  services: string[];
+  hours: {
+    [key: string]: {
+      open: string;
+      close: string;
+      isOpen: boolean;
+    };
+  };
+  pricing: {
+    consultation: number;
+    vaccination: number;
+    checkup: number;
+    emergency: number;
+    surgery: number;
+    grooming: number;
+  };
+  rating: number;
+  isActive: boolean;
+}
+
 interface Appointment {
   _id: string;
   appointmentDate: string;
@@ -64,33 +95,61 @@ interface Appointment {
   totalAmount: number;
   paymentStatus: string;
   petId: Pet;
-  vetId: {
+  clinicId: {
     _id: string;
-    licenseNumber: string;
-    specializations: string[];
-    consultationFee: number;
-    userId: {
-      name: string;
-      email: string;
+    name: string;
+    address: {
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
+    phone: string;
+    pricing: {
+      consultation: number;
+      vaccination: number;
+      checkup: number;
+      emergency: number;
+      surgery: number;
+      grooming: number;
     };
   };
 }
 
-interface Veterinarian {
+interface Clinic {
   _id: string;
-  licenseNumber: string;
-  specializations: string[];
-  experience: number;
-  consultationFee: number;
-  rating: number;
-  bio?: string;
-  isAvailable: boolean;
-  userId: {
-    _id: string;
-    name: string;
-    email: string;
+  name: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
   };
+  phone: string;
+  services: string[];
+  hours: {
+    [key: string]: {
+      open: string;
+      close: string;
+      isOpen: boolean;
+    };
+  };
+  pricing: {
+    consultation: number;
+    vaccination: number;
+    checkup: number;
+    emergency: number;
+    surgery: number;
+    grooming: number;
+  };
+  features: string[];
+  rating: number;
+  reviewCount: number;
+  isActive: boolean;
+  isEmergency24h: boolean;
 }
+
+
 
 export default function DashboardPage() {
   const { data: session, status } = useSession() as { data: ExtendedSession | null; status: string };
@@ -100,12 +159,14 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'pets' | 'appointments'>('pets');
   const [pets, setPets] = useState<Pet[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [veterinarians, setVeterinarians] = useState<Veterinarian[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPastAppointments, setShowPastAppointments] = useState(false);
   const [showPetModal, setShowPetModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
+  const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Form states
   const [petForm, setPetForm] = useState({
@@ -122,7 +183,7 @@ export default function DashboardPage() {
 
   const [bookingForm, setBookingForm] = useState({
     petId: '',
-    vetId: '',
+    clinicId: '',
     appointmentDate: '',
     startTime: '',
     type: 'Consultation',
@@ -168,11 +229,14 @@ export default function DashboardPage() {
           console.error('📅 Failed to fetch appointments:', appointmentsData.error);
         }
 
-        // Fetch veterinarians
-        const vetsResponse = await fetch('/api/veterinarians');
-        const vetsData = await vetsResponse.json();
-        if (vetsData.success) {
-          setVeterinarians(vetsData.data);
+        // Fetch clinics
+        const clinicsResponse = await fetch('/api/clinics');
+        const clinicsData = await clinicsResponse.json();
+        if (clinicsData.success) {
+          console.log('🏥 Clinics API response:', clinicsData.data.length, 'clinics');
+          setClinics(clinicsData.data);
+        } else {
+          console.error('🏥 Failed to fetch clinics:', clinicsData.error);
         }
         
       } catch (error) {
@@ -287,6 +351,9 @@ export default function DashboardPage() {
     e.preventDefault();
     
     try {
+      setIsBookingLoading(true);
+      setNotification(null);
+
       const response = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -299,18 +366,40 @@ export default function DashboardPage() {
       const result = await response.json();
       
       if (result.success) {
-        // Refresh appointments
+        // Show success notification
+        setNotification({
+          type: 'success',
+          message: 'Appointment scheduled successfully!'
+        });
+
+        // Refresh appointments to show the new one
         const appointmentsResponse = await fetch('/api/appointments');
         const appointmentsData = await appointmentsResponse.json();
         if (appointmentsData.success) {
           setAppointments(appointmentsData.data);
         }
         
+        // Close modal and reset form
         setShowBookingModal(false);
         resetBookingForm();
+
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => setNotification(null), 5000);
+      } else {
+        // Show error notification
+        setNotification({
+          type: 'error',
+          message: result.error || 'Failed to schedule appointment. Please try again.'
+        });
       }
     } catch (error) {
       console.error('Error booking appointment:', error);
+      setNotification({
+        type: 'error',
+        message: 'Network error. Please check your connection and try again.'
+      });
+    } finally {
+      setIsBookingLoading(false);
     }
   };
 
@@ -320,12 +409,12 @@ export default function DashboardPage() {
     return `${endHour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
-  // Check if a time slot is occupied for the selected vet and date
+  // Check if a time slot is occupied for the selected clinic and date
   const isTimeSlotOccupied = (time: string) => {
-    if (!bookingForm.vetId || !bookingForm.appointmentDate) return false;
+    if (!bookingForm.clinicId || !bookingForm.appointmentDate) return false;
     
     return appointments.some(apt => 
-      apt.vetId?._id === bookingForm.vetId &&
+      apt.clinicId?._id === bookingForm.clinicId &&
       apt.appointmentDate.split('T')[0] === bookingForm.appointmentDate &&
       apt.startTime === time &&
       ['Scheduled', 'Confirmed'].includes(apt.status)
@@ -344,7 +433,7 @@ export default function DashboardPage() {
   const resetBookingForm = () => {
     setBookingForm({
       petId: '',
-      vetId: '',
+      clinicId: '',
       appointmentDate: '',
       startTime: '',
       type: 'Consultation',
@@ -433,6 +522,36 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-20 right-4 z-50 p-4 rounded-lg shadow-lg border max-w-md ${
+          notification.type === 'success' 
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+            : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          <div className="flex items-center space-x-2">
+            {notification.type === 'success' ? (
+              <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                <X className="w-3 h-3 text-white" />
+              </div>
+            )}
+            <span className="font-medium">{notification.message}</span>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-auto text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content with Tabs */}
       <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
@@ -594,6 +713,7 @@ export default function DashboardPage() {
                       <button
                         onClick={() => {
                           resetBookingForm();
+                          setNotification(null);
                           setShowBookingModal(true);
                         }}
                         className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
@@ -615,13 +735,14 @@ export default function DashboardPage() {
                           ? 'Your appointment history will appear here'
                           : pets.length === 0
                           ? 'Add a pet first, then book your first appointment'
-                          : 'Book your first appointment with our veterinarians'
+                          : 'Book your first appointment with our clinics'
                         }
                       </p>
                       {!showPastAppointments && pets.length > 0 && (
                         <button
                           onClick={() => {
                             resetBookingForm();
+                            setNotification(null);
                             setShowBookingModal(true);
                           }}
                           className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg"
@@ -662,7 +783,7 @@ export default function DashboardPage() {
                                     {appointment.startTime} - {appointment.endTime}
                                   </p>
                                   <p className="text-slate-600">
-                                    Dr. {appointment.vetId?.userId?.name || 'Unknown Vet'}
+                                    {appointment.clinicId?.name || 'Unknown Clinic'} - {appointment.clinicId?.address?.city || 'Unknown Location'}
                                   </p>
                                 </div>
                                 
@@ -906,19 +1027,19 @@ export default function DashboardPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Select Veterinarian *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Select Clinic *</label>
                   <select
                     required
-                    value={bookingForm.vetId}
-                    onChange={(e) => setBookingForm({...bookingForm, vetId: e.target.value})}
+                    value={bookingForm.clinicId}
+                    onChange={(e) => setBookingForm({...bookingForm, clinicId: e.target.value})}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="">Choose a veterinarian</option>
-                    {veterinarians
-                      .filter(vet => vet.isAvailable && vet._id) // Ensure vet has valid _id
-                      .map((vet, index) => (
-                      <option key={`vet-${vet._id || `fallback-${index}`}`} value={vet._id}>
-                        Dr. {vet.userId?.name || 'Unknown'} - ${vet.consultationFee || 0} ({Array.isArray(vet.specializations) ? vet.specializations.join(', ') : 'General'})
+                    <option value="">Choose a clinic</option>
+                    {clinics
+                      .filter(clinic => clinic._id) // Ensure clinic has valid _id
+                      .map((clinic, index) => (
+                      <option key={`clinic-${clinic._id || `fallback-${index}`}`} value={clinic._id}>
+                        {clinic.name} - {clinic.address.city}, {clinic.address.state}
                       </option>
                     ))}
                   </select>
@@ -1010,20 +1131,42 @@ export default function DashboardPage() {
                 <div className="flex space-x-3 pt-4">
                   <button
                     type="button"
+                    disabled={isBookingLoading}
                     onClick={() => {
                       setShowBookingModal(false);
                       resetBookingForm();
                     }}
-                    className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+                    className={`flex-1 px-4 py-2 border border-slate-300 rounded-lg font-medium transition-colors ${
+                      isBookingLoading 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-lg font-medium hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center justify-center"
+                    disabled={isBookingLoading}
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg inline-flex items-center justify-center ${
+                      isBookingLoading 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700'
+                    }`}
                   >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Book Appointment
+                    {isBookingLoading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Booking...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Book Appointment
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

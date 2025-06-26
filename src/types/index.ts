@@ -64,7 +64,8 @@ export interface Appointment {
   _id?: ObjectId;
   id?: string;
   petId: ObjectId | string;
-  vetId: ObjectId | string;
+  clinicId: ObjectId | string;
+  vetId?: ObjectId | string; // Made optional for clinic-based booking
   customerId: ObjectId | string;
   appointmentDate: Date;
   startTime: string;
@@ -268,6 +269,45 @@ export interface AppointmentEmailData {
   clinicName: string;
   clinicAddress: string;
   appointmentId: string;
+}
+
+export interface Clinic {
+  _id?: ObjectId;
+  id?: string;
+  name: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  phone: string;
+  email: string;
+  description?: string;
+  services: string[];
+  hours: {
+    [key: string]: {
+      open: string;
+      close: string;
+      isOpen: boolean;
+    };
+  };
+  pricing: {
+    consultation: number;
+    vaccination: number;
+    checkup: number;
+    emergency: number;
+    surgery: number;
+    grooming: number;
+  };
+  features: string[];
+  rating: number;
+  reviewCount: number;
+  images: string[];
+  isActive: boolean;
+  isEmergency24h: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Global type extensions
