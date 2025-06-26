@@ -47,6 +47,9 @@ interface Pet {
   notes?: string;
   profileImage?: string;
   createdAt: string;
+  customerId?: string;
+  userId?: string;
+  ownerId?: string;
 }
 
 interface Appointment {
@@ -209,6 +212,8 @@ export default function DashboardPage() {
         allergies: petForm.allergies ? petForm.allergies.split(',').map(a => a.trim()) : []
       };
 
+      console.log('🐾 Submitting pet data:', petData); // Debug log
+
       const url = editingPet ? `/api/pets/${editingPet._id}` : '/api/pets';
       const method = editingPet ? 'PUT' : 'POST';
       
@@ -219,11 +224,14 @@ export default function DashboardPage() {
       });
 
       const result = await response.json();
+      console.log('📡 Pet creation response:', response.status, result); // Debug log
       
       if (result.success) {
+        console.log('✅ Pet created successfully, refreshing list...'); // Debug log
         // Refresh pets
         const petsResponse = await fetch('/api/pets');
         const petsData = await petsResponse.json();
+        console.log('📋 Refreshed pets data:', petsData); // Debug log
         if (petsData.success) {
           setPets(petsData.data);
         }
@@ -231,9 +239,13 @@ export default function DashboardPage() {
         setShowPetModal(false);
         setEditingPet(null);
         resetPetForm();
+      } else {
+        console.error('❌ Pet creation failed:', result.error);
+        alert(`Failed to create pet: ${result.error}`);
       }
     } catch (error) {
       console.error('Error saving pet:', error);
+      alert('An error occurred while saving the pet. Please try again.');
     }
   };
 
@@ -364,6 +376,9 @@ export default function DashboardPage() {
     new Date(apt.appointmentDate) < today
   );
 
+  // Filter pets to only those with a valid _id and belonging to the current user
+  const visiblePets = pets.filter(pet => pet._id && (pet.customerId === session?.user?.id || pet.userId === session?.user?.id || pet.ownerId === session?.user?.id));
+
   const displayedAppointments = showPastAppointments ? pastAppointments : upcomingAppointments;
   if (status === 'loading' || loading) {
     return (
@@ -440,7 +455,7 @@ export default function DashboardPage() {
                   }`}
                 >
                   <Users className="w-5 h-5 inline mr-2" />
-                  My Pets ({pets.length})
+                  My Pets ({visiblePets.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('appointments')}
@@ -476,7 +491,7 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  {pets.length === 0 ? (
+                  {visiblePets.length === 0 ? (
                     <div className="text-center py-12">
                       <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                       <h3 className="text-lg font-medium text-slate-900 mb-2">No pets yet</h3>
@@ -495,8 +510,8 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {pets.map((pet) => (
-                        <div key={pet._id} className="bg-white rounded-xl shadow-md border border-emerald-100 p-6 hover:shadow-lg transition-all duration-200">
+                      {visiblePets.map((pet) => (
+                        <div key={pet._id.toString()} className="bg-white rounded-xl shadow-md border border-emerald-100 p-6 hover:shadow-lg transition-all duration-200">
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h3 className="text-lg font-semibold text-slate-900">{pet.name}</h3>
@@ -888,7 +903,7 @@ export default function DashboardPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="">Choose a pet</option>
-                    {pets.map((pet) => (
+                    {pets.filter(pet => pet._id).map((pet) => (
                       <option key={`pet-${pet._id}`} value={pet._id}>
                         {pet.name} ({pet.species})
                       </option>

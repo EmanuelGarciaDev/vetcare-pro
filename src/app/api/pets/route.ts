@@ -12,7 +12,13 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }    await connectDB();
     
-    const pets = await PetModel.find({ ownerId: session.user.id }).sort({ createdAt: -1 });
+    // Look for pets with either ownerId (new) or customerId (legacy) to support existing data
+    const pets = await PetModel.find({ 
+      $or: [
+        { ownerId: session.user.id },
+        { customerId: session.user.id }
+      ]
+    }).sort({ createdAt: -1 });
     
     return NextResponse.json({
       success: true,
@@ -48,6 +54,7 @@ export async function POST(request: NextRequest) {
     const petData = {
       ...body,
       ownerId: session.user.id,
+      customerId: session.user.id, // Also set customerId for backwards compatibility
       createdAt: new Date(),
       updatedAt: new Date()
     };
