@@ -75,16 +75,18 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      console.log('Session callback - Token:', token.sub, 'Session user:', session.user?.email);
+      console.log('Session callback - Token sub:', token.sub, 'Token ID:', token.id, 'Session user:', session.user?.email);
       if (session.user && token) {
-        return {
+        const finalSession = {
           ...session,
           user: {
             ...session.user,
-            id: token.sub,
+            id: token.id as string || token.sub,
             role: token.role as string || 'Customer'
           }
         };
+        console.log('Final session user ID:', finalSession.user.id);
+        return finalSession;
       }
       return session;
     }

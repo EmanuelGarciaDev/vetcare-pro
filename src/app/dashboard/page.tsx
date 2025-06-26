@@ -198,7 +198,7 @@ export default function DashboardPage() {
     if (session?.user?.id) {
       fetchData();
     }
-  }, [session?.user?.id]);
+  }, [session?.user]);
 
   // Pet management functions
   const handlePetSubmit = async (e: React.FormEvent) => {

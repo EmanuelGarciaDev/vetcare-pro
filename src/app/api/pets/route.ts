@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import { PetModel } from '@/lib/models';
+import { Types } from 'mongoose';
 
 export async function GET() {
   try {
@@ -10,15 +11,21 @@ export async function GET() {
     
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }    await connectDB();
+    }
+
+    await connectDB();
     
-    // Look for pets with either ownerId (new) or customerId (legacy) to support existing data
+    console.log('🐾 Fetching pets for user ID:', session.user.id);
+    
+    // Convert session user ID to ObjectId for proper comparison
+    const userId = new Types.ObjectId(session.user.id);
+    
+    // Only use ownerId now that we've cleaned up the data structure
     const pets = await PetModel.find({ 
-      $or: [
-        { ownerId: session.user.id },
-        { customerId: session.user.id }
-      ]
+      ownerId: userId
     }).sort({ createdAt: -1 });
+    
+    console.log(`🔍 Pets API: User ${session.user.id} (${session.user.email}) found ${pets.length} pets`);
     
     return NextResponse.json({
       success: true,
@@ -51,13 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }    await connectDB();
     
+    // Convert session user ID to ObjectId
+    const userId = new Types.ObjectId(session.user.id);
+    
     const petData = {
       ...body,
-      ownerId: session.user.id,
-      customerId: session.user.id, // Also set customerId for backwards compatibility
+      ownerId: userId, // Only use ownerId for clean data structure
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    
+    console.log(`🐾 Creating pet for user ${session.user.id} (${session.user.email}):`, body.name);
     
     const pet = new PetModel(petData);
     await pet.save();
