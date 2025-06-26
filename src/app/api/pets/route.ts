@@ -15,8 +15,6 @@ export async function GET() {
 
     await connectDB();
     
-    console.log('🐾 Fetching pets for user ID:', session.user.id);
-    
     // Convert session user ID to ObjectId for proper comparison
     const userId = new Types.ObjectId(session.user.id);
     
@@ -25,11 +23,30 @@ export async function GET() {
       ownerId: userId
     }).sort({ createdAt: -1 });
     
-    console.log(`🔍 Pets API: User ${session.user.id} (${session.user.email}) found ${pets.length} pets`);
+    console.log(`🔍 Pets API: Found ${pets.length} pets for user ${session.user.email}`);
+    
+    // Transform the pets to ensure _id is properly serialized
+    const serializedPets = pets.map(pet => ({
+      _id: pet._id.toString(),
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      age: pet.age,
+      weight: pet.weight,
+      color: pet.color,
+      gender: pet.gender,
+      allergies: pet.allergies || [],
+      notes: pet.notes,
+      profileImage: pet.profileImage,
+      createdAt: pet.createdAt,
+      ownerId: pet.ownerId.toString()
+    }));
+    
+    console.log(`🔍 Serialized pets sample:`, serializedPets[0]);
     
     return NextResponse.json({
       success: true,
-      data: pets
+      data: serializedPets
     });
   } catch (error) {
     console.error('Error fetching pets:', error);

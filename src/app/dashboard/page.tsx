@@ -47,9 +47,7 @@ interface Pet {
   notes?: string;
   profileImage?: string;
   createdAt: string;
-  customerId?: string;
-  userId?: string;
-  ownerId?: string;
+  ownerId: string;
 }
 
 interface Appointment {
@@ -151,34 +149,23 @@ export default function DashboardPage() {
         // Fetch pets
         const petsResponse = await fetch('/api/pets');
         const petsData = await petsResponse.json();
+        console.log('🐾 Frontend: Pets API response:', petsData);
         if (petsData.success) {
+          console.log('🐾 Frontend: Setting pets data:', petsData.data);
+          console.log('🐾 Frontend: Number of pets:', petsData.data.length);
           setPets(petsData.data);
+        } else {
+          console.error('🐾 Frontend: Failed to fetch pets:', petsData.error);
         }
 
         // Fetch appointments
         const appointmentsResponse = await fetch('/api/appointments');
         const appointmentsData = await appointmentsResponse.json();
         if (appointmentsData.success) {
-          console.log('📅 Raw appointments data:', appointmentsData.data[0]); // Debug log
-          // Clean the appointments data to ensure no direct array rendering
-          const cleanedAppointments = appointmentsData.data.map((apt: Appointment) => ({
-            ...apt,
-            // Ensure nested arrays don't cause React key issues
-            vetId: apt.vetId ? {
-              ...apt.vetId,
-              specializations: Array.isArray(apt.vetId.specializations) 
-                ? apt.vetId.specializations 
-                : []
-            } : null,
-            petId: apt.petId ? {
-              ...apt.petId,
-              allergies: Array.isArray(apt.petId.allergies) 
-                ? apt.petId.allergies 
-                : []
-            } : null
-          }));
-          console.log('🧹 Cleaned appointments data:', cleanedAppointments[0]); // Debug log
-          setAppointments(cleanedAppointments);
+          console.log('📅 Appointments API response:', appointmentsData.data.length, 'appointments');
+          setAppointments(appointmentsData.data);
+        } else {
+          console.error('📅 Failed to fetch appointments:', appointmentsData.error);
         }
 
         // Fetch veterinarians
@@ -370,14 +357,22 @@ export default function DashboardPage() {
   // Filter appointments
   const today = new Date();
   const upcomingAppointments = appointments.filter(apt => 
-    new Date(apt.appointmentDate) >= today
+    apt && apt._id && new Date(apt.appointmentDate) >= today
   );
   const pastAppointments = appointments.filter(apt => 
-    new Date(apt.appointmentDate) < today
+    apt && apt._id && new Date(apt.appointmentDate) < today
   );
 
-  // Filter pets to only those with a valid _id and belonging to the current user
-  const visiblePets = pets.filter(pet => pet._id && (pet.customerId === session?.user?.id || pet.userId === session?.user?.id || pet.ownerId === session?.user?.id));
+  // Pets are already filtered by the API to only include the current user's pets
+  const visiblePets = pets.filter(pet => pet._id);
+  
+  console.log('🐾 Frontend: pets state:', pets.length);
+  console.log('🐾 Frontend: Raw pets data:', pets);
+  console.log('🐾 Frontend: visiblePets after filtering:', visiblePets.length);
+  if (pets.length > 0) {
+    console.log('🐾 Frontend: First pet structure:', pets[0]);
+    console.log('🐾 Frontend: First pet _id:', pets[0]._id, 'Type:', typeof pets[0]._id);
+  }
 
   const displayedAppointments = showPastAppointments ? pastAppointments : upcomingAppointments;
   if (status === 'loading' || loading) {
@@ -638,9 +633,8 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {displayedAppointments && displayedAppointments.length > 0 ? 
-                        displayedAppointments.map((appointment) => (
-                        <div key={appointment._id} className="bg-white rounded-xl shadow-md border border-emerald-100 p-6">
+                      {displayedAppointments.map((appointment) => (
+                        <div key={`appointment-${appointment._id}`} className="bg-white rounded-xl shadow-md border border-emerald-100 p-6">
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-2">
@@ -700,7 +694,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
-                      )) : null}
+                      ))}
                     </div>
                   )}
                 </div>
@@ -903,7 +897,7 @@ export default function DashboardPage() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="">Choose a pet</option>
-                    {pets.filter(pet => pet._id).map((pet) => (
+                    {visiblePets.map((pet) => (
                       <option key={`pet-${pet._id}`} value={pet._id}>
                         {pet.name} ({pet.species})
                       </option>

@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { connectDB } from '@/lib/mongodb';
 import { AppointmentModel } from '@/lib/models/Appointment';
 import { VeterinarianModel } from '@/lib/models/Veterinarian';
+import { PetModel } from '@/lib/models/Pet';
+import { ObjectId } from 'mongodb';
 
 // Extend session type to include user id
 interface ExtendedUser {
@@ -29,11 +31,24 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
+    // First, get all pets owned by the current user
+    const userPets = await PetModel.find({ ownerId: new ObjectId(session.user.id) });
+    const userPetIds = userPets.map(pet => pet._id.toString());
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const veterinarianId = searchParams.get('veterinarian');
-    const date = searchParams.get('date');    // Build query filter
-    const filter: Record<string, string | Date | object> = { customerId: session.user.id };
+    const date = searchParams.get('date');
+    
+    // Build query filter - only include appointments for pets owned by the user
+    const filter: Record<string, string | Date | object | null> = { 
+      customerId: session.user.id,
+      $or: [
+        { petId: { $in: userPetIds } },  // Appointments for user's pets
+        { petId: null }  // Appointments without specific pets (general consultations)
+      ]
+    };
+    
     if (status) filter.status = status;
     if (veterinarianId) filter.vetId = veterinarianId;
     if (date) {
@@ -48,9 +63,26 @@ export async function GET(request: NextRequest) {
       .populate('petId', 'name species breed')
       .sort({ appointmentDate: 1 });
 
+    // Serialize _id fields as strings for consistency
+    const serializedAppointments = appointments.map(appointment => ({
+      ...appointment.toObject(),
+      _id: appointment._id.toString(),
+      customerId: appointment.customerId.toString(),
+      vetId: appointment.vetId ? {
+        ...appointment.vetId.toObject(),
+        _id: appointment.vetId._id.toString()
+      } : null,
+      petId: appointment.petId ? {
+        ...appointment.petId.toObject(),
+        _id: appointment.petId._id.toString()
+      } : null
+    }));
+
+    console.log(`[Appointments API] Found ${serializedAppointments.length} appointments for user ${session.user.id}`);
+
     return NextResponse.json({ 
       success: true, 
-      data: appointments 
+      data: serializedAppointments 
     });
 
   } catch (error) {
