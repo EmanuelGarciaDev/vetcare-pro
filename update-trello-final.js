@@ -1,13 +1,13 @@
 import fetch from 'node-fetch';
 
-// Trello API credentials (replace with your actual values)
+// Trello API credentials
 const TRELLO_API_KEY = process.env.TRELLO_API_KEY || 'YOUR_TRELLO_API_KEY';
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN || 'YOUR_TRELLO_TOKEN';
-const BOARD_ID = process.env.TRELLO_BOARD_ID || 'YOUR_BOARD_ID';
+const BOARD_ID = '6759e4dce5b4715019b7c77c'; // VetCare Pro board
 
 async function updateTrelloBoard() {
   try {
-    console.log('🎯 Updating Trello board with completed dashboard...');
+    console.log('🎯 Updating Trello board with React & Security fixes...');
     
     // Get all lists on the board
     const listsResponse = await fetch(`https://api.trello.com/1/boards/${BOARD_ID}/lists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`);
