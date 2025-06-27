@@ -196,8 +196,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/login');
+    } else if (status === 'authenticated' && session?.user?.role) {
+      // Role-based redirects
+      if (session.user.role === 'Admin') {
+        router.push('/admin');
+        return;
+      } else if (session.user.role === 'Vet') {
+        router.push('/vet');
+        return;
+      }
+      // Customer role stays on /dashboard
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   // Fetch data
   useEffect(() => {
@@ -207,37 +217,86 @@ export default function DashboardPage() {
       try {
         setLoading(true);
         
-        // Fetch pets
-        const petsResponse = await fetch('/api/pets');
-        const petsData = await petsResponse.json();
-        console.log('🐾 Frontend: Pets API response:', petsData);
-        if (petsData.success) {
-          console.log('🐾 Frontend: Setting pets data:', petsData.data);
-          console.log('🐾 Frontend: Number of pets:', petsData.data.length);
-          setPets(petsData.data);
-        } else {
-          console.error('🐾 Frontend: Failed to fetch pets:', petsData.error);
-        }
+        // Admin users fetch all system data
+        if (session.user.role === 'Admin') {
+          console.log('🔄 Fetching admin dashboard data...');
+          
+          // Fetch all pets (admin view)
+          const petsResponse = await fetch('/api/admin/pets');
+          const petsData = await petsResponse.json();
+          if (petsData.success) {
+            console.log('🐾 Admin: All pets loaded:', petsData.data.length);
+            setPets(petsData.data);
+          } else {
+            console.error('🐾 Admin: Failed to fetch all pets:', petsData.error);
+          }
 
-        // Fetch appointments
-        const appointmentsResponse = await fetch('/api/appointments');
-        const appointmentsData = await appointmentsResponse.json();
-        if (appointmentsData.success) {
-          console.log('📅 Appointments API response:', appointmentsData.data.length, 'appointments');
-          setAppointments(appointmentsData.data);
-        } else {
-          console.error('📅 Failed to fetch appointments:', appointmentsData.error);
-        }
+          // Fetch all appointments (admin view)
+          const appointmentsResponse = await fetch('/api/admin/appointments');
+          const appointmentsData = await appointmentsResponse.json();
+          if (appointmentsData.success) {
+            console.log('📅 Admin: All appointments loaded:', appointmentsData.data.length);
+            setAppointments(appointmentsData.data);
+          } else {
+            console.error('� Admin: Failed to fetch all appointments:', appointmentsData.error);
+          }
 
-        // Fetch clinics
-        const clinicsResponse = await fetch('/api/clinics');
-        const clinicsData = await clinicsResponse.json();
-        if (clinicsData.success) {
-          console.log('🏥 Clinics API response:', clinicsData.data.length, 'clinics');
-          setClinics(clinicsData.data);
-        } else {
-          console.error('🏥 Failed to fetch clinics:', clinicsData.error);
+          // Fetch all clinics (admin view)
+          const clinicsResponse = await fetch('/api/clinics');
+          const clinicsData = await clinicsResponse.json();
+          if (clinicsData.success) {
+            console.log('🏥 Admin: All clinics loaded:', clinicsData.data.length);
+            setClinics(clinicsData.data);
+          } else {
+            console.error('🏥 Admin: Failed to fetch clinics:', clinicsData.error);
+          }
+          
+          return; // Skip customer-specific data fetching
         }
+        
+        // Customer users fetch only their own data
+        if (session.user.role === 'Customer' || session.user.role === undefined) {
+          console.log('🔄 Fetching customer dashboard data...');
+          
+          // Fetch user's pets
+          const petsResponse = await fetch('/api/pets');
+          const petsData = await petsResponse.json();
+          console.log('🐾 Frontend: Pets API response:', petsData);
+          if (petsData.success) {
+            console.log('🐾 Frontend: Setting pets data:', petsData.data);
+            console.log('🐾 Frontend: Number of pets:', petsData.data.length);
+            setPets(petsData.data);
+          } else {
+            console.error('🐾 Frontend: Failed to fetch pets:', petsData.error || 'Unknown error');
+            console.error('🐾 Frontend: Full pets response:', petsData);
+          }
+
+          // Fetch user's appointments
+          const appointmentsResponse = await fetch('/api/appointments');
+          const appointmentsData = await appointmentsResponse.json();
+          if (appointmentsData.success) {
+            console.log('📅 Appointments API response:', appointmentsData.data.length, 'appointments');
+            setAppointments(appointmentsData.data);
+          } else {
+            console.error('📅 Failed to fetch appointments:', appointmentsData.error || 'Unknown error');
+            console.error('📅 Full appointments response:', appointmentsData);
+          }
+
+          // Fetch clinics (same for all users)
+          const clinicsResponse = await fetch('/api/clinics');
+          const clinicsData = await clinicsResponse.json();
+          if (clinicsData.success) {
+            console.log('🏥 Clinics API response:', clinicsData.data.length, 'clinics');
+            setClinics(clinicsData.data);
+          } else {
+            console.error('🏥 Failed to fetch clinics:', clinicsData.error);
+          }
+          
+          return;
+        }
+        
+        // Vet and other roles skip dashboard data (they have their own dashboards)
+        console.log('🔄 Skipping customer data fetch for role:', session.user.role);
         
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -249,7 +308,7 @@ export default function DashboardPage() {
     if (session?.user?.id) {
       fetchData();
     }
-  }, [session?.user]);
+  }, [session?.user?.id, session?.user?.role]);
 
   // Pet management functions
   const handlePetSubmit = async (e: React.FormEvent) => {
