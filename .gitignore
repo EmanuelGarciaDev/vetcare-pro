@@ -69,3 +69,7 @@ PRODUCTION_*.md
 # Keep only essential project documentation
 !README.md
 !README-clean.md
+
+# Development and testing scripts (not for production)
+scripts/
+docs/
