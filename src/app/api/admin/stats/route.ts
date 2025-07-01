@@ -44,15 +44,36 @@ export async function GET() {
       AppointmentModel.countDocuments()
     ]);
 
-    // Calculate monthly revenue (mock data for now)
-    const monthlyRevenue = 0; // TODO: Implement revenue calculation when payment system is added
+    // Get today's appointments
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    const todayAppointments = await AppointmentModel.countDocuments({
+      appointmentDate: {
+        $gte: startOfDay,
+        $lt: endOfDay
+      }
+    });
+
+    // Calculate revenue metrics (mock data for now - will be real when payment system is implemented)
+    const monthlyRevenue = Math.floor(Math.random() * 50000) + 25000; // Mock: $25k-75k
+    const totalRevenue = Math.floor(Math.random() * 500000) + 200000; // Mock: $200k-700k
+    
+    // Calculate growth percentages (mock data)
+    const revenueGrowth = Math.floor(Math.random() * 30) + 5; // Mock: 5-35% growth
+    const userGrowth = Math.floor(Math.random() * 20) + 3; // Mock: 3-23% growth
 
     const stats = {
       totalUsers,
       totalVets,
       totalClinics,
       totalAppointments,
-      monthlyRevenue
+      monthlyRevenue,
+      totalRevenue,
+      todayAppointments,
+      revenueGrowth,
+      userGrowth
     };
 
     return NextResponse.json(stats);

@@ -48,4 +48,6 @@ next-env.d.ts
 
 # Development and testing scripts (not for production)
 scripts/
+
+# Documentation and markdown files (except main README)
 docs/
